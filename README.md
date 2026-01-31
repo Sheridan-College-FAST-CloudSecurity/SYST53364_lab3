@@ -3,7 +3,8 @@
 ## Part 1: Infrastructure as Code
 
 ### Tool Choice: Terraform
-I chose Terraform because it supports multiple cloud providers, has a readable configuration language (HCL), and strong community support.
+Reason: Terraform is cloud-agnostic, supports multi-cloud deployments, and uses a declarative configuration language (HCL) that is human-readable. It also has a strong community and supports modular, reusable code.
+
 
 ### Configuration Layers:
 1. **main.tf** - Infrastructure definition
@@ -14,7 +15,7 @@ I chose Terraform because it supports multiple cloud providers, has a readable c
 ### Secret Management:
 Using AWS Secrets Manager to store database credentials securely.
 
-## Configuration Management Approach (200-300 words)
+## Configuration Management Approach
 
 For this lab, I implemented a layered configuration management approach using Terraform to deploy AWS infrastructure. This method helps keep my code organized, reusable, and secure across different environments.
 
