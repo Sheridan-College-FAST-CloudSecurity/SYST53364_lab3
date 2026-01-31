@@ -16,18 +16,12 @@ Using AWS Secrets Manager to store database credentials securely.
 
 ## Configuration Management Approach (200-300 words)
 
-This lab implements a layered configuration management approach using Terraform as Infrastructure as Code (IaC). The configuration is separated into four distinct layers:
+For this lab, I implemented a layered configuration management approach using Terraform to deploy AWS infrastructure. This method helps keep my code organized, reusable, and secure across different environments.
 
-1. **Infrastructure Code Layer** (`main.tf`): Contains declarative definitions of all AWS resources including VPC, subnets, EC2 instance, and security groups. This layer defines WHAT should be created without hardcoding environment-specific values.
+First, I created separate configuration layers to avoid hardcoding values. The main.tf file contains only the infrastructure definitions—like what resources to create (VPC, EC2 instance, security groups). Then I used variables.tf to declare all configurable parameters with default values. This separation means I can change settings without touching the main infrastructure code.
 
-2. **Variable Declaration Layer** (`variables.tf`): Defines all configurable parameters with type safety and default values. This provides a clear contract for what can be customized.
+For environment-specific configurations, I created two files: terraform.tfvars for default values (like using t2.micro instances) and dev.tfvars for development overrides (like t2.small instances). This layered approach lets me deploy the same infrastructure to different environments just by switching configuration files, ensuring consistency while allowing flexibility.
 
-3. **Default Configuration Layer** (`terraform.tfvars`): Contains sensible defaults for all environments, such as t2.micro instance type and us-east-1 region. This serves as the baseline configuration.
+For security, I used AWS Secrets Manager to handle sensitive data like database passwords. Instead of storing credentials in my code or Git repository (which would be unsafe), I configured Terraform to create a secret in AWS Secrets Manager. My application retrieves the password at runtime using IAM roles, so the actual secret never appears in my code.
 
-4. **Environment-Specific Layer** (`dev.tfvars`): Overrides default values for specific environments. For development, we use t2.small instances. Different files can be created for staging/production.
-
-5. **Secret Management Layer** (AWS Secrets Manager): Database credentials are stored securely outside version control. The EC2 instance retrieves secrets at runtime using IAM roles, ensuring no hardcoded credentials.
-
-This approach provides several benefits: environment parity through consistent code, enhanced security through separated secrets, improved collaboration with clear separation of concerns, and easier debugging with transparent configuration layers.
-
-The use of Terraform enables version-controlled infrastructure, repeatable deployments, and clear documentation through code.
+This approach taught me the importance of separating configuration from code. It makes infrastructure more maintainable, secure, and adaptable to different needs. By using layered configuration and proper secret management, I can safely collaborate with others, track changes in Git, and deploy consistently across environments while following AWS best practices.
