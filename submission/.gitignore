@@ -1,0 +1,11 @@
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+terraform.tfvars
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

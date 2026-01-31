@@ -1,0 +1,46 @@
+LAB 3 - PART 1 DELIVERABLES
+============================
+
+STUDENT: [Your Name]
+DATE: $(date)
+
+1. INFRASTRUCTURE AS CODE TOOL SELECTION:
+   - Chosen Tool: Terraform
+   - Reason: Cloud-agnostic, human-readable HCL language, strong community support
+   - Alternative Considered: AWS CloudFormation
+
+2. GIT REPOSITORY CONTENTS:
+   - main.tf: Main infrastructure definition
+   - variables.tf: Variable declarations
+   - terraform.tfvars: Default configuration values
+   - dev.tfvars: Development environment overrides
+   - .gitignore: Terraform-specific ignore patterns
+   - README.md: Project documentation
+
+3. LAYERED CONFIGURATION IMPLEMENTED:
+   - Layer 1: Infrastructure Code (main.tf)
+   - Layer 2: Variable Definitions (variables.tf)
+   - Layer 3: Default Configuration (terraform.tfvars)
+   - Layer 4: Environment Overrides (dev.tfvars)
+
+4. SECRET MANAGEMENT:
+   - Service: AWS Secrets Manager
+   - Secret Created: lab3/database/password
+   - Security: No secrets stored in Git repository
+
+5. DEPLOYED RESOURCES:
+   - 1 VPC with public/private subnets
+   - 1 EC2 instance running Apache web server
+   - 1 Security group allowing HTTP/SSH
+   - 1 Internet Gateway
+   - 1 Route Table
+   - 1 AWS Secrets Manager secret
+
+6. CONFIGURATION MANAGEMENT APPROACH:
+   See README.md for 200-300 word explanation of layered
+   configuration management and secret handling.
+
+7. SCREENSHOTS REQUIRED:
+   - Terminal: Terraform commands/output
+   - AWS Console: Deployed resources
+   - Browser: Working web application

@@ -1,0 +1,11 @@
+total 36
+drwxrwxrwx+ 2 codespace codespace 4096 Jan 31 08:15 .
+drwxrwxrwx+ 6 codespace root      4096 Jan 31 08:14 ..
+-rw-rw-rw-  1 codespace codespace  113 Jan 31 08:14 .gitignore
+-rw-rw-rw-  1 codespace codespace 2207 Jan 31 08:14 README.md
+-rw-rw-rw-  1 codespace codespace 1505 Jan 31 08:15 deliverables.txt
+-rw-rw-rw-  1 codespace codespace   27 Jan 31 08:14 dev.tfvars
+-rw-rw-rw-  1 codespace codespace    0 Jan 31 08:15 file-list.txt
+-rw-rw-rw-  1 codespace codespace 3536 Jan 31 08:14 main.tf
+-rw-rw-rw-  1 codespace codespace  170 Jan 31 08:14 terraform.tfvars
+-rw-rw-rw-  1 codespace codespace  733 Jan 31 08:14 variables.tf

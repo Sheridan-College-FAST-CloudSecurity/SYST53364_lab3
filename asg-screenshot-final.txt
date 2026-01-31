@@ -1,0 +1,12 @@
+=== AUTO SCALING GROUP SCREENSHOT ===
+---------------------------
+|DescribeAutoScalingGroups|
++-------------------------+
+|  lab3-web-asg           |
+|  2                      |
+|  2                      |
+|  4                      |
+|  ELB                    |
+|  InstanceCount          |
+|  3                      |
++-------------------------+
