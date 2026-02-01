@@ -71,15 +71,32 @@ This ensures:
 
 ### Graceful Shutdown Process Description
 
-The graceful shutdown process ensures that when Auto Scaling needs to terminate an instance (during scale-in or instance refresh), it doesn't abruptly cut off user requests. 
+When our Auto Scaling Group needs to remove an instance (like during scale-in or updates), we use a graceful shutdown process to avoid interrupting users.
+First, AWS triggers a "lifecycle hook" that pauses the termination for 5 minutes. During this time, the instance runs a custom shutdown script. This script waits 10 seconds to let any ongoing web requests finish, then gracefully stops the Apache web server.
+Meanwhile, the load balancer notices the instance isn't responding to health checks anymore and stops sending new traffic to it. Only after the shutdown script completes does it signal AWS to continue with termination.
+This approach prevents users from seeing "Connection Refused" errors because requests in progress get to finish, and new requests go to other healthy instances. It's like gently closing a store - you finish serving current customers but don't let new ones in, then lock up once everyone's done.
+The implementation uses AWS lifecycle hooks combined with simple bash scripts to coordinate everything, ensuring our web application stays available during scaling events.
 
-When termination begins: 
-1) Auto Scaling triggers a lifecycle hook that pauses termination for 300 seconds. 
-2) The instance runs a shutdown script that waits 10 seconds for in-flight requests to complete. 
-3) Apache web server is stopped gracefully using `systemctl stop httpd`. 
-4) The script signals the lifecycle hook that shutdown is complete. 
-5) Auto Scaling proceeds with termination.
+## Note on Part 3 (RDS):
+Due to AWS Academy limitations with RDS creation, the RDS component is 
+documented but not deployed. The configuration includes:
 
-This process prevents "request dropped" errors for users and allows the application to clean up resources properly. The load balancer automatically detects the instance is unhealthy (via health checks) and stops sending new traffic during the shutdown process.
+1. **RDS MySQL with Multi-AZ**: Terraform code is provided
+2. **Backup Strategy**: 7-day automated backups
+3. **Read Replica**: Configured for high availability
+4. **Feature Toggle**: Database-driven feature management
 
-The implementation uses AWS lifecycle hooks, custom scripts, and coordinated timing to ensure smooth operations during scaling events.
+The complete RDS Terraform configuration is available in the codebase,
+but deployment was skipped to avoid AWS Academy resource limitations.
+
+### Backup and Restore Strategy
+Our database employs a dual-layered backup approach using Amazon RDS. First, automated daily backups retain data for 7 days, executing nightly at 3 AM to capture complete daily snapshots. Second, manual snapshots can be created on-demand before significant system changes or feature deployments. Recovery involves provisioning a new RDS instance from either backup type, with restoration typically completing within 15-20 minutes. This strategy ensures data protection against accidental deletions, corruption, or system failures, providing both scheduled protection and emergency recovery capabilities while maintaining a 7-day recovery window for point-in-time restoration.
+
+### Database Failure Handling
+The system gracefully manages database disruptions through automated failover and intelligent application logic. In RDS Multi-AZ configurations, AWS automatically promotes the standby replica during primary instance failures, typically within 1-2 minutes. During this transition, our web application implements a retry mechanism with three connection attempts spaced by brief intervals. If connectivity cannot be reestablished, the application displays user-friendly maintenance messages rather than technical error pages, maintaining user experience during outages. Additionally, CloudWatch alerts notify administrators of database issues, enabling prompt intervention while the system self-heals through AWS-managed failover processes.
+
+### Feature Toggle Implementation
+Feature toggles enable runtime feature management without application redeployment through a database-driven control system. A dedicated `feature_toggles` table stores feature states (e.g., 'new_dashboard': true/false), which the application queries on each request. This allows instant feature activation/deactivation via simple SQL updates, supporting A/B testing, gradual rollouts, and emergency rollbacks. For this lab, we implemented a dashboard toggle demonstrating how the same codebase can deliver different experiences based on database settings. This approach reduces deployment risks, enables controlled experimentation, and provides operational flexibility without code changes.
+
+### Integrated Resilience
+These components create a comprehensive resilience framework: automated backups safeguard data integrity, intelligent failure handling maintains service continuity, and feature toggles provide operational agility. Together, they ensure reliable system operation, rapid recovery from incidents, and safe feature evolution—key principles of resilient cloud infrastructure design.

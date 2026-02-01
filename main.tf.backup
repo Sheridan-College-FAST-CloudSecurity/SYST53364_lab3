@@ -2,140 +2,100 @@ provider "aws" {
   region = var.region
 }
 
-# ========== PART 1 INFRASTRUCTURE ==========
-
-# VPC
+# VPC (keep as is)
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = {
-    Name = "Lab3-VPC"
-  }
+  tags = { Name = "Lab3-VPC" }
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-  tags = {
-    Name = "Lab3-IGW"
-  }
+  tags = { Name = "Lab3-IGW" }
 }
 
-# Public Subnet
-resource "aws_subnet" "public" {
+# Public Subnets (2 for Multi-AZ)
+resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidr
+  cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.region}a"
   map_public_ip_on_launch = true
-  tags = {
-    Name = "Public-Subnet"
-  }
+  tags = { Name = "Public-Subnet-A" }
 }
 
-# Second Public Subnet (for Multi-AZ)
-resource "aws_subnet" "public2" {
+resource "aws_subnet" "public_b" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.3.0/24"
+  cidr_block              = "10.0.2.0/24"
   availability_zone       = "${var.region}b"
   map_public_ip_on_launch = true
-  tags = {
-    Name = "Public-Subnet-2"
-  }
+  tags = { Name = "Public-Subnet-B" }
 }
 
-# Private Subnet
-resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr
-  availability_zone = "${var.region}b"
-  tags = {
-    Name = "Private-Subnet"
-  }
-}
-
-# Route Table for Public Subnet
+# Route Table
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main.id
-  
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  
-  tags = {
-    Name = "Public-Route-Table"
-  }
+  tags = { Name = "Public-RT" }
 }
 
-# Associate Route Tables with Public Subnets
-resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = aws_subnet.public.id
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
   route_table_id = aws_route_table.public_rt.id
 }
 
-resource "aws_route_table_association" "public_assoc2" {
-  subnet_id      = aws_subnet.public2.id
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public_rt.id
 }
 
-# Security Group for Load Balancer (allows HTTP from internet)
-resource "aws_security_group" "lb_sg" {
-  name        = "lab3-lb-sg"
-  description = "Allow HTTP to Load Balancer"
+# Security Groups
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Allow HTTP from ALB and SSH"
   vpc_id      = aws_vpc.main.id
   
   ingress {
-    description = "HTTP from anywhere"
+    description = "HTTP from ALB"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.lb_sg.id]
   }
   
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  tags = {
-    Name = "LoadBalancer-Security-Group"
-  }
-}
-
-# Security Group for Web Servers (only allows HTTP from Load Balancer and SSH for management)
-resource "aws_security_group" "web_sg" {
-  name        = "lab3-web-sg"
-  description = "Allow HTTP from LB and SSH for management"
-  vpc_id      = aws_vpc.main.id
-  
-  # SSH access for troubleshooting (you can remove this in production)
   ingress {
-    description = "SSH from anywhere"
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
   
-  # HTTP access ONLY from Load Balancer
-  ingress {
-    description = "HTTP from Load Balancer"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    security_groups = [aws_security_group.lb_sg.id]
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
   
-  # Health checks from Load Balancer
+  tags = { Name = "Web-SG" }
+}
+
+resource "aws_security_group" "lb_sg" {
+  name        = "lb-sg"
+  description = "Allow HTTP to ALB"
+  vpc_id      = aws_vpc.main.id
+  
   ingress {
-    description = "Health checks from Load Balancer"
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_groups = [aws_security_group.lb_sg.id]
+    cidr_blocks = ["0.0.0.0/0"]
   }
   
   egress {
@@ -145,73 +105,62 @@ resource "aws_security_group" "web_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   
-  tags = {
-    Name = "Web-Security-Group"
-  }
+  tags = { Name = "ALB-SG" }
 }
 
-# ========== PART 2 INFRASTRUCTURE ==========
-
-# Application Load Balancer
+# Load Balancer
 resource "aws_lb" "web_lb" {
-  name               = "lab3-web-lb"
+  name               = "lab3-lb-20260131124539"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = [aws_subnet.public.id, aws_subnet.public2.id]
-  
-  enable_deletion_protection = false
-  
-  tags = {
-    Name    = "Lab3-ALB"
-    Project = "SYST53364-Lab3"
-  }
+  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+  tags = { Name = "Lab3-ALB" }
 }
 
-# Target Group
+# Target Group - USE SIMPLE HEALTH CHECK TO "/"
 resource "aws_lb_target_group" "web_tg" {
-  name     = "lab3-web-tg"
+  name     = "lab3-tg-20260131124539"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
   
+  # SIMPLE health check - just check root path
   health_check {
     enabled             = true
-    path                = "/health"
+    path                = "/"  # Changed from "/health" to "/"
     port                = "traffic-port"
     healthy_threshold   = 2
-    unhealthy_threshold = 2
+    unhealthy_threshold = 3
     timeout             = 5
     interval            = 30
-    matcher             = "200-299"  # Accept any 2xx status
+    matcher             = "200"  # Accept only 200 OK
   }
   
-  tags = {
-    Name = "Lab3-Target-Group"
-  }
+  tags = { Name = "Lab3-TG" }
 }
 
-# ALB Listener
-resource "aws_lb_listener" "web_listener" {
+# Listener
+resource "aws_lb_listener" "web" {
   load_balancer_arn = aws_lb.web_lb.arn
   port              = "80"
   protocol          = "HTTP"
-  
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.web_tg.arn
   }
 }
 
-# Launch Template for Auto Scaling Group
-resource "aws_launch_template" "web_template" {
-  name_prefix   = "lab3-web-temp-"
+# Launch Template with WORKING health check
+resource "aws_launch_template" "web" {
+  name_prefix   = "lab3-web-20260131124539-"
   image_id      = "ami-0c02fb55956c7d316"  # Amazon Linux 2
   instance_type = var.instance_type
   
-  # User data with health check setup
-  user_data = base64encode(<<-EOF
+  # SIMPLE User Data that ALWAYS works
+  user_data = base64encode(<<-EOT
               #!/bin/bash
+              
               # Install Apache
               yum update -y
               yum install -y httpd
@@ -220,56 +169,49 @@ resource "aws_launch_template" "web_template" {
               systemctl start httpd
               systemctl enable httpd
               
-              # Create index page
+              # Create index.html (root path for health check)
               cat > /var/www/html/index.html << 'HTML'
               <!DOCTYPE html>
               <html>
-              <head>
-                  <title>Lab 3 - Auto Scaling Group</title>
-                  <style>
-                      body { font-family: Arial, sans-serif; margin: 40px; }
-                      .healthy { color: green; }
-                      .instance { background: #f5f5f5; padding: 20px; margin: 10px; }
-                  </style>
-              </head>
+              <head><title>Lab 3 - Healthy Server</title></head>
               <body>
-                  <h1>Lab 3 - Part 2: Auto Scaling Group</h1>
-                  <p>Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>
-                  <p>Availability Zone: $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)</p>
-                  <p>Health Check: <a href="/health">/health</a></p>
-                  <p class="healthy">Status: Healthy ✓</p>
+              <h1>Lab 3 - Part 2 Working!</h1>
+              <p>This server is healthy and responding to health checks.</p>
+              <p>Instance: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>
+              <p><a href="/health.html">Health Check Page</a></p>
               </body>
               </html>
               HTML
               
-              # Install health check script
-              cat > /var/www/html/health << 'HEALTH'
-              #!/bin/bash
-              echo "Content-type: text/plain"
-              echo ""
-              echo "Health Check Report"
-              echo "==================="
-              echo "Time: $(date)"
-              echo "Instance: $(hostname)"
-              echo "Apache Status: $(systemctl is-active httpd)"
-              echo ""
-              # Check Apache status
-              if systemctl is-active --quiet httpd; then
-                  echo "STATUS: HEALTHY"
-                  exit 0
-              else
-                  echo "STATUS: UNHEALTHY"
-                  exit 1
-              fi
+              # Create health.html (simple HTML page)
+              cat > /var/www/html/health.html << 'HEALTH'
+              <!DOCTYPE html>
+              <html>
+              <body>
+              <h1 style="color:green;">HEALTHY</h1>
+              <p>Status: All checks passed</p>
+              <p>Time: $(date)</p>
+              </body>
+              </html>
               HEALTH
               
-              chmod +x /var/www/html/health
+              # Create health.txt (even simpler for load balancer)
+              echo "healthy" > /var/www/html/health.txt
               
-              # Configure Apache for CGI
-              echo "Options +ExecCGI" >> /etc/httpd/conf/httpd.conf
-              echo "AddHandler cgi-script .sh" >> /etc/httpd/conf/httpd.conf
-              systemctl restart httpd
-              EOF
+              # Graceful shutdown script
+              cat > /usr/local/bin/graceful-shutdown.sh << 'SHUTDOWN'
+              #!/bin/bash
+              echo "Graceful shutdown started at $(date)" > /tmp/shutdown.log
+              sleep 10
+              systemctl stop httpd
+              echo "Apache stopped at $(date)" >> /tmp/shutdown.log
+              echo "Ready for termination" >> /tmp/shutdown.log
+              SHUTDOWN
+              
+              chmod +x /usr/local/bin/graceful-shutdown.sh
+              
+              echo "Setup complete at $(date)" > /tmp/setup.log
+              EOT
               )
   
   network_interfaces {
@@ -281,31 +223,30 @@ resource "aws_launch_template" "web_template" {
     resource_type = "instance"
     tags = {
       Name    = "Lab3-ASG-Instance"
-      Project = "SYST53364-Lab3"
+      Project = "SYST53364"
     }
   }
 }
 
 # Auto Scaling Group
-resource "aws_autoscaling_group" "web_asg" {
-  name                      = "lab3-web-asg"
-  max_size                  = var.max_size
-  min_size                  = var.min_size
-  desired_capacity          = var.desired_capacity
-  health_check_type         = var.health_check_type
-  health_check_grace_period = var.health_check_grace_period
-  target_group_arns         = [aws_lb_target_group.web_tg.arn]
-  vpc_zone_identifier       = [aws_subnet.public.id, aws_subnet.public2.id]
-  force_delete              = true  # Allows easier cleanup
+resource "aws_autoscaling_group" "web" {
+  name               = "lab3-asg-20260131124539"
+  max_size           = var.max_size
+  min_size           = var.min_size
+  desired_capacity   = var.desired_capacity
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+  target_group_arns  = [aws_lb_target_group.web_tg.arn]
+  vpc_zone_identifier = [aws_subnet.public_a.id, aws_subnet.public_b.id]
   
   launch_template {
-    id      = aws_launch_template.web_template.id
+    id      = aws_launch_template.web.id
     version = "$Latest"
   }
   
-  # Lifecycle Hook for graceful shutdown
+  # Lifecycle Hook
   initial_lifecycle_hook {
-    name                 = "graceful-shutdown-hook"
+    name                 = "graceful-shutdown"
     lifecycle_transition = "autoscaling:EC2_INSTANCE_TERMINATING"
     heartbeat_timeout    = 300
     default_result       = "CONTINUE"
@@ -316,68 +257,27 @@ resource "aws_autoscaling_group" "web_asg" {
     value               = "Lab3-ASG-Instance"
     propagate_at_launch = true
   }
-  
-  tag {
-    key                 = "Project"
-    value               = "SYST53364-Lab3"
-    propagate_at_launch = true
-  }
 }
 
-# ========== SECRETS WITH RANDOM NAME (Fixes duplicate error) ==========
-
-# Generate random string for secret name to avoid conflicts
-resource "random_id" "secret_suffix" {
-  byte_length = 4
-}
-
-# AWS Secrets Manager - Database Password (with random suffix)
+# Secrets Manager (keep from Part 1)
 resource "aws_secretsmanager_secret" "db_secret" {
-  name = "lab3-database-password-${random_id.secret_suffix.hex}"
-  description = "Database credentials for Lab 3"
-  
-  tags = {
-    Project = "SYST53364-Lab3"
-  }
+  name = "lab3/database/password"
 }
 
 resource "aws_secretsmanager_secret_version" "db_secret" {
   secret_id = aws_secretsmanager_secret.db_secret.id
-  secret_string = jsonencode({
-    username = "db_admin"
-    password = "ExamplePassword123!"
-    note     = "This is a sample secret for Lab 3"
-  })
+  secret_string = jsonencode({ password = "Example123" })
 }
 
-# ========== OUTPUTS ==========
-
-output "load_balancer_dns" {
-  value       = aws_lb.web_lb.dns_name
-  description = "DNS name of the Load Balancer"
-}
-
+# Outputs
 output "load_balancer_url" {
-  value       = "http://${aws_lb.web_lb.dns_name}"
-  description = "URL to access the Load Balancer"
+  value = "http://${aws_lb.web_lb.dns_name}"
 }
 
-output "auto_scaling_group_name" {
-  value       = aws_autoscaling_group.web_asg.name
-  description = "Name of the Auto Scaling Group"
+output "asg_name" {
+  value = aws_autoscaling_group.web.name
 }
 
-output "secret_name" {
-  value       = aws_secretsmanager_secret.db_secret.name
-  description = "Name of the database secret"
-}
-
-output "vpc_id" {
-  value       = aws_vpc.main.id
-  description = "VPC ID"
-}
-
-output "public_subnet_id" {
-  value       = aws_subnet.public.id
-  description = "Public Subnet ID"
+output "target_group_arn" {
+  value = aws_lb_target_group.web_tg.arn
 }

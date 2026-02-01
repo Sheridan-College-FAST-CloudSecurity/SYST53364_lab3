@@ -4,28 +4,16 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+variable "vpc_id" {
+  description = "Existing VPC ID"
   type        = string
-  default     = "10.0.0.0/16"
-}
-
-variable "public_subnet_cidr" {
-  description = "CIDR block for public subnet"
-  type        = string
-  default     = "10.0.1.0/24"
-}
-
-variable "private_subnet_cidr" {
-  description = "CIDR block for private subnet"
-  type        = string
-  default     = "10.0.2.0/24"
+  default     = "vpc-0b45abe1f37c68aea"
 }
 
 variable "ami_id" {
-  description = "AMI ID for EC2 instance"
+  description = "AMI ID"
   type        = string
-  default     = "ami-0c02fb55956c7d316"
+  default     = "ami-0c02fb55956c7d316"  # Amazon Linux 2
 }
 
 variable "instance_type" {
@@ -34,34 +22,62 @@ variable "instance_type" {
   default     = "t2.micro"
 }
 
-# ========== PART 2 VARIABLES ==========
-
 variable "min_size" {
-  description = "Minimum number of instances in Auto Scaling Group"
+  description = "Minimum instances"
   type        = number
   default     = 2
 }
 
 variable "max_size" {
-  description = "Maximum number of instances in Auto Scaling Group"
+  description = "Maximum instances"
   type        = number
   default     = 4
 }
 
 variable "desired_capacity" {
-  description = "Desired number of instances in Auto Scaling Group"
+  description = "Desired instances"
   type        = number
   default     = 2
 }
 
-variable "health_check_type" {
-  description = "Health check type for Auto Scaling Group"
+variable "db_instance_class" {
+  description = "RDS instance class"
   type        = string
-  default     = "ELB"
+  default     = "db.t3.micro"
 }
 
-variable "health_check_grace_period" {
-  description = "Time after instance comes into service before checking health"
+variable "db_name" {
+  description = "Database name"
+  type        = string
+  default     = "lab3db"
+}
+
+variable "db_username" {
+  description = "Database username"
+  type        = string
+  default     = "admin"
+}
+
+variable "backup_retention_period" {
+  description = "Backup retention days"
   type        = number
-  default     = 300
+  default     = 7
+}
+
+variable "storage_type" {
+  description = "Storage type"
+  type        = string
+  default     = "gp2"
+}
+
+variable "allocated_storage" {
+  description = "Storage size in GB"
+  type        = number
+  default     = 20
+}
+
+variable "create_replica" {
+  description = "Create read replica"
+  type        = bool
+  default     = false  # Set to false to save costs
 }
